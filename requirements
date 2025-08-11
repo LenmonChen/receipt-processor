@@ -1,0 +1,12 @@
+fastapi==0.104.1
+uvicorn==0.23.2
+celery==5.3.4
+redis==4.6.0
+SQLAlchemy==2.0.21
+pymysql==1.1.0
+pydantic==2.4.2
+requests==2.31.0
+python-multipart==0.0.6
+python-dotenv==1.0.0
+sqlalchemy_utils==0.41.0  # 用于加密类型
+cryptography==41.0.4      # 加密依赖
