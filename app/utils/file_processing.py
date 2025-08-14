@@ -118,7 +118,8 @@ def base64_to_file(base64_str, filename=None):
     # Base64解码（自动处理填充）
     file_data = base64.b64decode(base64_str)
 
-    file_root = r"D:\py_task\receipt-processor\decode_file"
+    file_root = os.path.join(os.getcwd(), 'temp') #创建一个临时的文件夹
+    os.makedirs(file_root, exist_ok=True)
     filename = os.path.join(file_root, filename)
     # 写入文件
     with open(filename, 'wb') as f:
