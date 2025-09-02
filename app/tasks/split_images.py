@@ -71,7 +71,8 @@ def write_imgs(box, i, img, img_path):
 
 def split_imgs(img_path: str):
     # 1. 加载训练好的 OBB 模型（请替换为你自己的 .pt 文件路径）
-    model = YOLO(r'C:\Users\13916\runs\obb\train11\weights\best.pt')  # 例如 'yolov8s-obb.pt'
+    # model = YOLO(r'C:\Users\13916\runs\obb\train11\weights\best.pt')  # 例如 'yolov8s-obb.pt', windows本地环境
+    model = YOLO(r'/root/models/best.pt')  #阿里云服务器上的模型地址
     # /root/models/best.pt
     # 服务器上的地址: /root/models/best.pt
     # 2. 读取图片
