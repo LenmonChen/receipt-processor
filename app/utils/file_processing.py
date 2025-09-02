@@ -126,3 +126,13 @@ def base64_to_file(base64_str, filename=None):
         f.write(file_data)
 
     return filename
+
+
+def file_to_base64(file_path):
+    """将文件转换为 Base64 编码字符串"""
+    with open(file_path, "rb") as file:
+        # 读取文件内容并编码为 Base64
+        encoded_bytes = base64.b64encode(file.read())
+        # 将字节串转换为字符串（可选）
+        encoded_str = encoded_bytes.decode('utf-8')
+    return encoded_str
