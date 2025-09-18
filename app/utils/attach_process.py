@@ -6,14 +6,15 @@ import base64
 from PIL import Image
 from openai import OpenAI
 from pathlib import Path
-
 from openai.types import file_object
-
+from celery_app import celery_app
 
 # aliyun的Qwen-long帮助文档
 # https://bailian.console.aliyun.com/?tab=doc#/api/?type=model&url=https%3A%2F%2Fhelp.aliyun.com%2Fdocument_detail%2F2846146.html
 
 # 将图片转换为 Base64 字符串
+
+@celery_app.task
 def image_to_base64(image_path):
     with Image.open(image_path) as img:
         buffered = io.BytesIO()
@@ -22,6 +23,7 @@ def image_to_base64(image_path):
     return img_str
 
 # 将文本信息转换为 Base64 字符串
+@celery_app.task
 def pdf_to_base64(file_path):
     with open(file_path, "rb") as pdf_file:
         encoded_str = base64.b64encode(pdf_file.read()).decode("utf-8")
@@ -51,13 +53,15 @@ client = OpenAI(
     # base_url="https://api.siliconflow.cn/v1",
 )
 
+@celery_app.task
 def get_file_id(file_path):
     file_object = client.files.create(file=Path(file_path), purpose="file-extract")
     return file_object.id
 
 
 # 文本型的附件,还是用qwen-long来获取关键信息
-def process_image_txt(file_id):
+@celery_app.task
+async def process_image_txt(file_id):
     completion  = client.chat.completions.create(
         model = "qwen-long",
         temperature=0.0,
@@ -131,6 +135,7 @@ def process_image_txt(file_id):
 
 
 # AI处理图片类型的功能函数
+@celery_app.task
 def process_img_vl(base64_image):
     completion = client.chat.completions.create(
         model="qwen-vl-max",  # 此处以qwen-vl-max-latest为例，可按需更换模型名称。模型列表：https://help.aliyun.com/zh/model-studio/models
@@ -717,12 +722,15 @@ def process_img_vl(base64_image):
 
 # # 主程序
 # if __name__ == "__main__":
-
+#     jpg_path = r"D:\py_task\receipt-processor\temp\E01282333333\1fcafddb-22de-4997-b84a-2aa75e36ad75\0.jpg"
+#     jpg_base64 = image_to_base64(jpg_path)
+#     a = process_img_vl(jpg_base64)
+#     input('a')
     # jpg_files = get_all_jpg_files(
     #     r"C:\Users\13916\Desktop\2025财务管理课题\2025财务管理课题\附件\通行费")
-
+    #
     # jpg_file = r"C:\Users\13916\Desktop\2025财务管理课题\2025财务管理课题\附件\定额发票\内蒙古出租汽车.png"
-        #r"C:\Users\13916\Documents\xwechat_files\cydinginsider_dee8\msg\file\2025-03\行程单\行程单-滴滴.pdf"
+    #     r"C:\Users\13916\Documents\xwechat_files\cydinginsider_dee8\msg\file\2025-03\行程单\行程单-滴滴.pdf"
     # for jpg in jpg_files:
     #     aa = get_file_id(jpg)
     #     print(f"正在处理文件: {jpg}")
@@ -732,4 +740,4 @@ def process_img_vl(base64_image):
     # jpg_file = r"C:\Users\13916\Desktop\2025财务管理课题\2025财务管理课题\附件\通行费\云南机打发票2.png"
     # aa = get_file_id(jpg_file)
     # print(aa)
-    # # process_image(aa)
+    # process_image(aa)

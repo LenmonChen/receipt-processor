@@ -1,8 +1,10 @@
 from pydantic import BaseModel, Field, validator, field_validator
 from typing import List, Optional, Dict, Any
 from enum import Enum
-
 from app.core.config import settings
+from fastapi import Body,HTTPException
+import base64
+import binascii
 
 
 class FileType(str, Enum):
@@ -46,3 +48,21 @@ class TaskResponse(BaseModel):
     status: str = "Processing started"
     detail: str = "任务已加入处理队列"
     endpoint: str = "/api/v1/task/status/{task_id}"
+
+
+
+# --------- Base64 验证依赖项 -----------
+def validate_request_and_attachments(
+    request: ParsingRequest = Body(...)  # 先用 pydantic 检查结构
+) -> ParsingRequest:
+    for idx, attachment in enumerate(request.attachments):
+        try:
+            # 严格验证 base64 格式
+            decoded_data = base64.b64decode(attachment.content_base64, validate=True)
+            # 可选操作：进一步检查 decoded_data 是否为空等
+        except binascii.Error:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid Base64 string in attachment at index {idx}"
+            )
+    return request

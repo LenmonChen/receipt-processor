@@ -1,15 +1,18 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Header, dependencies, HTTPException, Security, BackgroundTasks
-from app.models.schemas import ParsingRequest, TaskResponse
+from app.models.schemas import ParsingRequest, TaskResponse, validate_request_and_attachments
 from app.core.security import validateapikey
-from app.tasks.celery_tasks import process_attachments_task
+# from app.tasks.celery_tasks import process_attachments_task
 from app.db.session import get_db
 from app.db.models import Bill
 from celery.result import AsyncResult
+from fastapi.encoders import jsonable_encoder
 import uuid
 from fastapi import Depends, FastAPI, HTTPException, Security
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.tasks.background_task import deal_info  # 具体处理附件的函数
-import time
+import os
+import base64
+
 router = APIRouter()
 
 # 1. 设置 Bearer Token 认证方案
@@ -34,20 +37,42 @@ async def validate_token(credentials: HTTPAuthorizationCredentials = Security(se
     description="接收单据ID和Base64附件列表，异步调用AI解析"
 )
 async def parse_document(
-        request: ParsingRequest,  # 验证post过来的数据是否合理,不合理直接就raise 异常了;只有通过验证的数据才能执行下面的信息
-        background_tasks: BackgroundTasks   #增加后台任务的方式, 测试情况下,就用这个。将来用redis
+        # background_tasks: BackgroundTasks,   #增加后台任务的方式, 测试情况下,就用这个。将来用redis
+        request: ParsingRequest = Depends(validate_request_and_attachments),  # 验证post过来的数据是否合理,不合理直接就raise 异常了;只有通过验证的数据才能执行下面的信息
         # dependencies=[Depends(security.validateapikey)],
         # apikey: str = Depends(validate_token),
         # Depends(security.validateapikey),
         # db=Depends(get_db)
 ):
-    # celery_task = process_attachments_task.delay(request.model_dump())  # delay() 是 Celery 中触发异步任务的核心方法，它将任务立即放入消息队列但不直接执行，让后台 worker 进程异步处理任务，调用方无需等待任务完成。
-    background_tasks.add_task(deal_info, msg=request)
+    request_dict = jsonable_encoder(request)
+    bill_no = request_dict.get("bill_id")
+    file_attachments = request_dict.get("attachments")
+    file_paths = [] # 设置路径
+
+    new_file_path = os.path.join(os.getcwd(), 'temp', bill_no)
+    os.makedirs(new_file_path, exist_ok=True)
+
+    for attachment in file_attachments:
+        new_attach_name = str(uuid.uuid4())
+        file_type = attachment["file_name"].split(".")[-1]
+        new_file_name = os.path.join(os.getcwd(), 'temp', bill_no, new_attach_name + '.' + file_type)
+        # Base64解码（自动处理填充）
+        file_data = base64.b64decode(attachment['content_base64'])
+        # 写入文件
+        with open(new_file_name, 'wb') as f:
+            f.write(file_data)
+        file_paths.append(new_file_name)
+    # 更新 request_dict 里content_base64的字符串, 转换成本地文件路径
+    for i, attachment in enumerate(request_dict["attachments"]):
+        attachment["content_base64"] = file_paths[i]
+
+    celery_task_id = deal_info.delay(request_dict)  # delay() 是 Celery 中触发异步任务的核心方法，它将任务立即放入消息队列但不直接执行，让后台 worker 进程异步处理任务，调用方无需等待任务完成。
+    # background_tasks.add_task(deal_info, msg=request)
     return {
-        "task_id": '111',
+        "task_id": str(celery_task_id),
         "status": "Processing started",
         "detail": f"单据 '{request.bill_id}' 处理中",
-        "endpoint": f"/api/v1/task/status/123"
+        "endpoint": f"/api/v1/task/status/celery_task_id"
     }
 
     # return {

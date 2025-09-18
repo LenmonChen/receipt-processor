@@ -1,13 +1,14 @@
 import base64
+import io
 import logging
 import imghdr
 import os
-
+from PIL import Image
 import filetype  # 纯 Python 的替代方案
 from app.core.config import settings
 from mimetypes import MimeTypes
 import re
-
+from celery_app import celery_app
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +26,7 @@ logger = logging.getLogger(__name__)
 #         logger.error(f"Base64解码失败: {str(e)}")
 #         raise ValueError("无效的Base64格式")
 
-
+@celery_app.task
 def detect_mime_type(data: bytes) -> str:
     """通过内容检测MIME类型（纯Python实现）"""
     # 1. 先尝试用标准库检测图片
@@ -45,7 +46,7 @@ def detect_mime_type(data: bytes) -> str:
     logger.warning("无法识别文件类型")
     return settings.FileType.UNKNOWN
 
-
+@celery_app.task
 def detect_image_type(data: bytes) -> str | None:
     """使用标准库检测图片类型"""
     try:
@@ -58,12 +59,12 @@ def detect_image_type(data: bytes) -> str | None:
         logger.error(f"图片类型检测失败: {str(e)}")
     return None
 
-
+@celery_app.task
 def is_pdf(data: bytes) -> bool:
     """检测是否为PDF文件"""
     return len(data) > 4 and data[:4] == b"%PDF"
 
-
+@celery_app.task
 def validate_file_type(data: bytes, allowed_types=settings.ALLOWED_FILE_TYPES) -> str:
     """验证文件实际类型"""
     mime_type = detect_mime_type(data)
@@ -71,7 +72,7 @@ def validate_file_type(data: bytes, allowed_types=settings.ALLOWED_FILE_TYPES) -
         raise ValueError(f"禁止的文件类型: {mime_type}")
     return mime_type
 
-
+@celery_app.task
 def get_file_extension(mime_type: str) -> str:
     """从MIME类型获取扩展名"""
     extension_map = {
@@ -90,6 +91,7 @@ def get_file_extension(mime_type: str) -> str:
 
 
 # 把base64的字符串转成文件
+@celery_app.task
 def base64_to_file(base64_str, filename=None):
     # 检查是否是Data URI格式（如"data:image/png;base64,..."）
     if base64_str.startswith('data:'):
@@ -127,7 +129,7 @@ def base64_to_file(base64_str, filename=None):
 
     return filename
 
-
+@celery_app.task
 def file_to_base64(file_path):
     """将文件转换为 Base64 编码字符串"""
     with open(file_path, "rb") as file:
@@ -136,3 +138,10 @@ def file_to_base64(file_path):
         # 将字节串转换为字符串（可选）
         encoded_str = encoded_bytes.decode('utf-8')
     return encoded_str
+
+# def image_to_base64(image_path):
+#     with Image.open(image_path) as img:
+#         buffered = io.BytesIO()
+#         img.save(buffered, format="PNG")  # 可以根据需要更改格式，如"JPEG"
+#         img_str = base64.b64encode(buffered.getvalue()).decode('utf-8')
+#     return img_str

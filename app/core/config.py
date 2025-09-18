@@ -26,8 +26,8 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
     ALLOWED_FILE_TYPES: list[str] = ["image/jpeg", "image/png", "application/pdf"]
 
-    CELERY_BROKER_URL: str = Field(..., env="CELERY_BROKER_URL")
-    CELERY_RESULT_BACKEND: str = Field(..., env="CELERY_RESULT_BACKEND")
+    # CELERY_BROKER_URL: str = Field(..., env="CELERY_BROKER_URL")
+    # CELERY_RESULT_BACKEND: str = Field(..., env="CELERY_RESULT_BACKEND")
     # ... 其他配置项 ...
     MAX_FILE_SIZE_MB: int = Field(..., env="MAX_FILE_SIZE_MB")
 

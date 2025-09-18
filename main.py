@@ -8,6 +8,7 @@ from app.api.v1.endpoints import parsing
 from app.core.config import settings
 from app.db.session import engine, Base
 from contextlib import asynccontextmanager
+from celery_app import celery_app
 
 @asynccontextmanager
 async def app_lifespan(app: FastAPI):

@@ -5,7 +5,10 @@ import os
 import numpy as np
 import glob
 import shutil
+from celery_app import celery_app
+import shutil
 
+@celery_app.task
 def xywhr2vertices(x_center, y_center, width, height, angle_rad):
     # 创建旋转矩形的旋转矩阵
     rect = ((x_center, y_center), (width, height), np.degrees(angle_rad))
@@ -13,6 +16,7 @@ def xywhr2vertices(x_center, y_center, width, height, angle_rad):
     box = np.int32(np.round(box))        # 转成整数坐标
     return box
 
+@celery_app.task
 # 写图片
 def write_imgs(box, i, img, img_path):
     """
@@ -68,8 +72,13 @@ def write_imgs(box, i, img, img_path):
     cv2.imwrite(save_path, warped)
     # print(f"已保存第 {i} 个裁剪图像至: {save_path}")
 
-
+@celery_app.task
 def split_imgs(img_path: str):
+    # 删除已经存在的图片路径, 预防重复解析的场景
+    if os.path.exists(img_path.split('.')[0]):
+        shutil.rmtree(img_path.split('.')[0])
+
+
     # 1. 加载训练好的 OBB 模型（请替换为你自己的 .pt 文件路径）
     # model = YOLO(r'C:\Users\13916\runs\obb\train11\weights\best.pt')  # 例如 'yolov8s-obb.pt', windows本地环境
     model = YOLO(r'/root/models/best.pt')  #阿里云服务器上的模型地址
